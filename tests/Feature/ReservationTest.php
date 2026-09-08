@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Menu;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -11,6 +12,7 @@ class ReservationTest extends TestCase
 
     public function test_reservation_can_be_created_listed_updated_and_deleted(): void
     {
+        $menu = Menu::create(['nama_menu' => 'Prabu', 'harga' => 15000, 'stok' => 3]);
         $payload = [
             'source' => 'online',
             'userId' => 'USR-TEST',
@@ -22,7 +24,7 @@ class ReservationTest extends TestCase
             'table' => 'Meja 1',
             'note' => 'Less sugar',
             'items' => [
-                ['menuId' => 'M-001', 'name' => 'Prabu', 'qty' => 1, 'price' => 15000],
+                ['menuId' => 'M-' . $menu->id, 'name' => 'Prabu', 'qty' => 1, 'price' => 15000],
             ],
             'total' => 15000,
         ];
@@ -32,6 +34,8 @@ class ReservationTest extends TestCase
             ->assertJsonPath('name', 'Budi')
             ->assertJsonPath('status', 'Menunggu Konfirmasi')
             ->json();
+
+        $this->assertDatabaseHas('menus', ['id' => $menu->id, 'stok' => 2]);
 
         $this->getJson('/reservations')
             ->assertOk()

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Reservation;
+use App\Models\Menu;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -48,21 +50,43 @@ class ReservationController extends Controller
             return response()->json($this->formatReservation(Reservation::findOrFail($validated['id'])));
         }
 
-        $reservation = Reservation::create([
-            'id' => $validated['id'] ?? $this->makeReservationId($source),
-            'source' => $source,
-            'user_id' => $validated['userId'] ?? null,
-            'name' => $validated['name'],
-            'phone' => $validated['phone'] ?? null,
-            'date' => $validated['date'],
-            'time' => $validated['time'],
-            'people' => $validated['people'],
-            'table' => $validated['table'] ?? null,
-            'note' => $validated['note'] ?? null,
-            'items' => $validated['items'],
-            'total' => $validated['total'],
-            'status' => $validated['status'] ?? ($source === 'walk-in' ? 'Diproses' : 'Menunggu Konfirmasi'),
-        ]);
+        $reservation = DB::transaction(function () use ($validated, $source) {
+            $quantities = [];
+            foreach ($validated['items'] as $item) {
+                $menuId = $this->databaseMenuId($item['menuId']);
+                if ($menuId === null) {
+                    abort(422, 'Menu pesanan tidak valid.');
+                }
+                $quantities[$menuId] = ($quantities[$menuId] ?? 0) + $item['qty'];
+            }
+
+            $menus = Menu::query()->whereIn('id', array_keys($quantities))->lockForUpdate()->get()->keyBy('id');
+            foreach ($quantities as $menuId => $quantity) {
+                $menu = $menus->get($menuId);
+                if (! $menu || $menu->stok < $quantity) {
+                    abort(422, 'Stok menu tidak mencukupi. Silakan muat ulang daftar menu.');
+                }
+            }
+            foreach ($quantities as $menuId => $quantity) {
+                $menus->get($menuId)->decrement('stok', $quantity);
+            }
+
+            return Reservation::create([
+                'id' => $validated['id'] ?? $this->makeReservationId($source),
+                'source' => $source,
+                'user_id' => $validated['userId'] ?? null,
+                'name' => $validated['name'],
+                'phone' => $validated['phone'] ?? null,
+                'date' => $validated['date'],
+                'time' => $validated['time'],
+                'people' => $validated['people'],
+                'table' => $validated['table'] ?? null,
+                'note' => $validated['note'] ?? null,
+                'items' => $validated['items'],
+                'total' => $validated['total'],
+                'status' => $validated['status'] ?? ($source === 'walk-in' ? 'Diproses' : 'Menunggu Konfirmasi'),
+            ]);
+        });
 
         return response()->json($this->formatReservation($reservation), 201);
     }
@@ -94,6 +118,11 @@ class ReservationController extends Controller
         } while (Reservation::whereKey($id)->exists());
 
         return $id;
+    }
+
+    private function databaseMenuId(string $menuId): ?int
+    {
+        return preg_match('/^M-(\\d+)$/', $menuId, $matches) ? (int) $matches[1] : null;
     }
 
     private function formatReservation(Reservation $reservation): array
