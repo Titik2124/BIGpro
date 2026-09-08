@@ -183,12 +183,6 @@ async function loadServerReservations() {
   saveState();
 }
 
-async function loadServerMenus() {
-  const menus = await apiRequest("/menus");
-  state.menus = normalizeMenus(menus);
-  saveState();
-}
-
 function confirmDelete(label) {
   return window.confirm(`Yakin ingin menghapus ${label}? Data yang sudah dihapus tidak bisa dikembalikan.`);
 }
@@ -286,6 +280,13 @@ function validateStock(items) {
   });
 }
 
+function reduceStock(items) {
+  items.forEach((item) => {
+    const menu = state.menus.find((menuItem) => menuItem.id === item.menuId);
+    if (menu) menu.stock = Math.max(menu.stock - item.qty, 0);
+  });
+}
+
 function renderAll() {
   renderNav();
   renderMenu();
@@ -307,7 +308,7 @@ function showAdminPage() {
   document.body.classList.add("admin-mode");
   $("#customerPage").hidden = true;
   $("#adminPage").hidden = false;
-  Promise.all([loadServerReservations(), loadServerMenus()]).then(renderAdmin).catch(() => toast("Data server belum bisa dimuat."));
+  loadServerReservations().then(renderAdmin).catch(() => toast("Data server belum bisa dimuat."));
   renderAdmin();
 }
 
@@ -574,7 +575,7 @@ async function handleReservation(event) {
   };
   try {
     const savedReservation = await saveReservationToServer(reservation);
-    await loadServerMenus();
+    reduceStock(items);
     state.reservations = [savedReservation, ...state.reservations.filter((item) => item.id !== savedReservation.id)];
     addAudit(`Reservasi baru ${savedReservation.id} dari ${user.name}`);
     saveState();
@@ -1007,7 +1008,7 @@ async function handleWalkInOrder(event) {
   };
   try {
     const savedReservation = await saveReservationToServer(reservation);
-    await loadServerMenus();
+    reduceStock(items);
     state.reservations = [savedReservation, ...state.reservations.filter((item) => item.id !== savedReservation.id)];
     addAudit(`Admin membuat pesanan langsung ${savedReservation.id}`);
     saveState();
@@ -1030,16 +1031,15 @@ async function handleAdminCrud(event) {
   if (values.some((value) => !value)) return;
   const type = form.dataset.crud;
   if (type === "menu") {
-    try {
-      await apiRequest("/menus", {
-        method: "POST",
-        body: JSON.stringify({ name: values[0], price: Number(values[2]) || 0, stock: Number(values[3]) || 0, image: "logo.jpeg" }),
-      });
-      await loadServerMenus();
-    } catch (error) {
-      toast(error.message);
-      return;
-    }
+    state.menus.push({
+      id: `M-${Date.now()}`,
+      name: values[0],
+      category: values[1],
+      price: Number(values[2]) || 0,
+      stock: Number(values[3]) || 0,
+      desc: values[4],
+      image: DEFAULT_MENU_IMAGE,
+    });
   }
   if (type === "promo") {
     state.promos.push({ id: `P-${Date.now()}`, title: values[0], discount: values[1], desc: values[2] });
@@ -1105,18 +1105,11 @@ document.addEventListener("click", async (event) => {
     const input = document.querySelector(`[data-edit-stock="${saveStock.dataset.saveStock}"]`);
     if (!menu || !input) return;
     const nextStock = Math.max(Number(input.value) || 0, 0);
-    try {
-      await apiRequest(`/menus/${encodeURIComponent(menu.id.replace("M-", ""))}/stock`, {
-        method: "PATCH",
-        body: JSON.stringify({ stock: nextStock }),
-      });
-      await loadServerMenus();
-      addAudit(`Admin mengubah stok ${menu.name} menjadi ${nextStock}`);
-      renderAll();
-      toast(`Stok ${menu.name} diperbarui.`);
-    } catch (error) {
-      toast(error.message);
-    }
+    menu.stock = nextStock;
+    addAudit(`Admin mengubah stok ${menu.name} menjadi ${menu.stock}`);
+    saveState();
+    renderAll();
+    toast(`Stok ${menu.name} diperbarui.`);
   }
 
   ["menu", "promo", "gallery"].forEach((type) => {
@@ -1232,10 +1225,7 @@ window.addEventListener("hashchange", syncPageFromHash);
 setAuthMode("login");
 renderAll();
 syncLocalReservationsToServer()
-  .then(() => Promise.all([loadServerReservations(), loadServerMenus()]))
+  .then(loadServerReservations)
   .then(renderAll)
   .catch(() => toast("Data server belum bisa dimuat. Jalankan migrasi/server Laravel dulu."));
-setInterval(() => {
-  Promise.all([loadServerReservations(), loadServerMenus()]).then(renderAll).catch(() => {});
-}, 15000);
 syncPageFromHash();
