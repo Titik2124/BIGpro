@@ -194,6 +194,17 @@ function loadState() {
     return JSON.parse(JSON.stringify(seed));
   }
   const parsed = JSON.parse(saved);
+  // Memulihkan menu bawaan yang sempat tertimpa respons API lama (M-1, M-2, dst.).
+  // Kondisi ini hanya cocok dengan format data sementara tersebut, bukan menu normal aplikasi.
+  if (
+    Array.isArray(parsed.menus) &&
+    parsed.menus.length > 0 &&
+    parsed.menus.length < seed.menus.length &&
+    parsed.menus.every((menu) => /^M-\d{1,2}$/.test(menu.id))
+  ) {
+    parsed.menus = JSON.parse(JSON.stringify(seed.menus));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+  }
   if ((parsed.version || 1) < DATA_VERSION) {
     const migrated = {
       ...parsed,
