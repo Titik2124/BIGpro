@@ -45,4 +45,32 @@ class ReservationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('deleted', true);
     }
+
+    public function test_occupied_table_is_rejected_and_released_when_order_is_finished(): void
+    {
+        $payload = [
+            'source' => 'online',
+            'name' => 'Budi',
+            'date' => '2026-09-05',
+            'time' => '18:30',
+            'people' => 2,
+            'table' => 'Meja 1',
+            'items' => [['menuId' => 'M-001', 'name' => 'Prabu', 'qty' => 1, 'price' => 15000]],
+            'total' => 15000,
+        ];
+
+        $first = $this->postJson('/reservations', $payload)->assertCreated()->json();
+
+        $this->postJson('/reservations', [...$payload, 'name' => 'Siti'])
+            ->assertConflict()
+            ->assertJsonPath('message', 'Maaf, meja ini sudah dipesan. Silakan pilih meja lain.');
+
+        $this->patchJson("/reservations/{$first['id']}/status", ['status' => 'Selesai'])
+            ->assertOk()
+            ->assertJsonPath('status', 'Selesai');
+
+        $this->postJson('/reservations', [...$payload, 'name' => 'Siti'])
+            ->assertCreated()
+            ->assertJsonPath('name', 'Siti');
+    }
 }

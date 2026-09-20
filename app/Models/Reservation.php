@@ -23,6 +23,7 @@ class Reservation extends Model
         'time',
         'people',
         'table',
+        'active_table',
         'note',
         'items',
         'total',

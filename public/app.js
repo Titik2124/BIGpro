@@ -194,17 +194,6 @@ function loadState() {
     return JSON.parse(JSON.stringify(seed));
   }
   const parsed = JSON.parse(saved);
-  // Memulihkan menu bawaan yang sempat tertimpa respons API lama (M-1, M-2, dst.).
-  // Kondisi ini hanya cocok dengan format data sementara tersebut, bukan menu normal aplikasi.
-  if (
-    Array.isArray(parsed.menus) &&
-    parsed.menus.length > 0 &&
-    parsed.menus.length < seed.menus.length &&
-    parsed.menus.every((menu) => /^M-\d{1,2}$/.test(menu.id))
-  ) {
-    parsed.menus = JSON.parse(JSON.stringify(seed.menus));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-  }
   if ((parsed.version || 1) < DATA_VERSION) {
     const migrated = {
       ...parsed,
@@ -305,8 +294,39 @@ function renderAll() {
   renderGallery();
   renderOrderList();
   renderReservationIdentity();
+  renderTableAvailability();
   renderHistory();
   renderAdmin();
+}
+
+const TABLES = ["Meja 1", "Meja 2", "Meja 3", "Meja 4", "Meja Teras"];
+const TABLE_RELEASE_STATUSES = ["Selesai", "Dibatalkan"];
+
+function isTableOccupied(table) {
+  return state.reservations.some(
+    (reservation) => reservation.table === table && !TABLE_RELEASE_STATUSES.includes(reservation.status),
+  );
+}
+
+function tableOptions(selected = "") {
+  return [
+    `<option value="">Pilih meja</option>`,
+    ...TABLES.map((table) => {
+      const occupied = isTableOccupied(table);
+      return `<option value="${table}" ${selected === table ? "selected" : ""} ${occupied ? "disabled" : ""}>${table}${occupied ? " — Tidak Tersedia" : " — Tersedia"}</option>`;
+    }),
+  ].join("");
+}
+
+function renderTableAvailability() {
+  const tableSelect = $("#resTable");
+  if (!tableSelect) return;
+  const selected = tableSelect.value;
+  tableSelect.innerHTML = tableOptions(selected);
+  const occupiedTables = TABLES.filter(isTableOccupied);
+  if (occupiedTables.length) {
+    $("#reservationHint").textContent = `Meja terisi: ${occupiedTables.join(", ")}. Pilih meja lain.`;
+  }
 }
 
 function showCustomerPage() {
@@ -569,6 +589,18 @@ async function handleReservation(event) {
     return;
   }
 
+  const table = $("#resTable").value;
+  if (!table) {
+    hint.textContent = "Pilih meja yang tersedia.";
+    return;
+  }
+
+  if (isTableOccupied(table)) {
+    hint.textContent = "Maaf, meja ini sudah dipesan. Silakan pilih meja lain.";
+    renderTableAvailability();
+    return;
+  }
+
   const reservation = {
     id: `RSV-${String(Date.now()).slice(-6)}`,
     userId: user.id,
@@ -577,7 +609,7 @@ async function handleReservation(event) {
     date,
     time,
     people,
-    table: $("#resTable").value,
+    table,
     note: $("#resNote").value.trim(),
     items,
     total: items.reduce((sum, item) => sum + item.qty * item.price, 0),
@@ -824,14 +856,7 @@ function renderAdminContent() {
           </div>
           <div class="form-row">
             <input id="walkInPeople" type="number" min="1" value="1" aria-label="Jumlah orang" required />
-            <select id="walkInTable">
-              <option value="">Pilih meja</option>
-              <option>Meja 1</option>
-              <option>Meja 2</option>
-              <option>Meja 3</option>
-              <option>Meja 4</option>
-              <option>Meja Teras</option>
-            </select>
+            <select id="walkInTable" required>${tableOptions()}</select>
           </div>
           <div class="order-list admin-order-list">
             ${state.menus
@@ -1001,6 +1026,12 @@ async function handleWalkInOrder(event) {
   }
 
   const now = new Date();
+  const table = $("#walkInTable").value;
+  if (!table || isTableOccupied(table)) {
+    hint.textContent = "Maaf, meja ini sudah dipesan. Silakan pilih meja lain.";
+    renderAdminContent();
+    return true;
+  }
   const reservation = {
     id: `ORD-${String(Date.now()).slice(-6)}`,
     source: "walk-in",
@@ -1010,7 +1041,7 @@ async function handleWalkInOrder(event) {
     date: now.toISOString().slice(0, 10),
     time: now.toTimeString().slice(0, 5),
     people: Number($("#walkInPeople").value) || 1,
-    table: $("#walkInTable").value,
+    table,
     note: $("#walkInNote").value.trim(),
     items,
     total: items.reduce((sum, item) => sum + item.qty * item.price, 0),
@@ -1158,7 +1189,7 @@ document.addEventListener("change", async (event) => {
       reservation.status = previousStatus;
       renderAll();
       toast(error.message);
-    }
+}
   }
 });
 
@@ -1214,6 +1245,14 @@ $("#refreshHistory").addEventListener("click", async () => {
 });
 $("#authForm").addEventListener("submit", handleAuth);
 $("#reservationForm").addEventListener("submit", handleReservation);
+$("#resTable").addEventListener("focus", async () => {
+  try {
+    await loadServerReservations();
+    renderTableAvailability();
+  } catch (error) {
+    // Validasi server tetap menjadi pengaman terakhir bila koneksi sedang bermasalah.
+  }
+});
 $("#adminLoginForm").addEventListener("submit", (event) => {
   event.preventDefault();
   if ($("#adminUser").value === "admin" && $("#adminPass").value === "admin123") {

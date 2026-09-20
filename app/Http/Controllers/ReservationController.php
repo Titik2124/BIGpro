@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Reservation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Validation\Rule;
 
 class ReservationController extends Controller
@@ -31,7 +32,7 @@ class ReservationController extends Controller
             'date' => ['required', 'date'],
             'time' => ['required', 'date_format:H:i'],
             'people' => ['required', 'integer', 'min:1'],
-            'table' => ['nullable', 'string', 'max:100'],
+            'table' => ['required', 'string', 'max:100'],
             'note' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.menuId' => ['required', 'string', 'max:100'],
@@ -48,21 +49,36 @@ class ReservationController extends Controller
             return response()->json($this->formatReservation(Reservation::findOrFail($validated['id'])));
         }
 
-        $reservation = Reservation::create([
-            'id' => $validated['id'] ?? $this->makeReservationId($source),
-            'source' => $source,
-            'user_id' => $validated['userId'] ?? null,
-            'name' => $validated['name'],
-            'phone' => $validated['phone'] ?? null,
-            'date' => $validated['date'],
-            'time' => $validated['time'],
-            'people' => $validated['people'],
-            'table' => $validated['table'] ?? null,
-            'note' => $validated['note'] ?? null,
-            'items' => $validated['items'],
-            'total' => $validated['total'],
-            'status' => $validated['status'] ?? ($source === 'walk-in' ? 'Diproses' : 'Menunggu Konfirmasi'),
-        ]);
+        // Status awal ditentukan server; klien tidak boleh membuat reservasi yang langsung selesai.
+        $status = $source === 'walk-in' ? 'Diproses' : 'Menunggu Konfirmasi';
+
+        try {
+            $reservation = Reservation::create([
+                'id' => $validated['id'] ?? $this->makeReservationId($source),
+                'source' => $source,
+                'user_id' => $validated['userId'] ?? null,
+                'name' => $validated['name'],
+                'phone' => $validated['phone'] ?? null,
+                'date' => $validated['date'],
+                'time' => $validated['time'],
+                'people' => $validated['people'],
+                'table' => $validated['table'],
+                // Kolom unik ini adalah kunci pengaman saat dua pelanggan memesan bersamaan.
+                'active_table' => $this->holdsTable($status) ? $validated['table'] : null,
+                'note' => $validated['note'] ?? null,
+                'items' => $validated['items'],
+                'total' => $validated['total'],
+                'status' => $status,
+            ]);
+        } catch (QueryException $exception) {
+            if ($this->isActiveTableConflict($exception)) {
+                return response()->json([
+                    'message' => 'Maaf, meja ini sudah dipesan. Silakan pilih meja lain.',
+                ], 409);
+            }
+
+            throw $exception;
+        }
 
         return response()->json($this->formatReservation($reservation), 201);
     }
@@ -73,7 +89,21 @@ class ReservationController extends Controller
             'status' => ['required', Rule::in(['Menunggu Konfirmasi', 'Diproses', 'Siap Disajikan', 'Selesai', 'Dibatalkan'])],
         ]);
 
-        $reservation->update(['status' => $validated['status']]);
+        try {
+            $reservation->update([
+                'status' => $validated['status'],
+                // Meja kembali tersedia otomatis ketika kasir/admin menyelesaikan atau membatalkan pesanan.
+                'active_table' => $this->holdsTable($validated['status']) ? $reservation->table : null,
+            ]);
+        } catch (QueryException $exception) {
+            if ($this->isActiveTableConflict($exception)) {
+                return response()->json([
+                    'message' => 'Maaf, meja ini sudah dipesan. Silakan pilih meja lain.',
+                ], 409);
+            }
+
+            throw $exception;
+        }
 
         return response()->json($this->formatReservation($reservation));
     }
@@ -114,5 +144,16 @@ class ReservationController extends Controller
             'status' => $reservation->status,
             'createdAt' => $reservation->created_at?->toISOString(),
         ];
+    }
+
+    private function holdsTable(string $status): bool
+    {
+        return ! in_array($status, ['Selesai', 'Dibatalkan'], true);
+    }
+
+    private function isActiveTableConflict(QueryException $exception): bool
+    {
+        return in_array((string) $exception->getCode(), ['23000', '23505'], true)
+            || str_contains(strtolower($exception->getMessage()), 'unique constraint');
     }
 }

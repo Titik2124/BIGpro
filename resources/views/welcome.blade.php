@@ -142,7 +142,7 @@
             </label>
             <label>
               Nomor Meja
-              <select id="resTable">
+              <select id="resTable" required>
                 <option value="">Pilih meja</option>
                 <option>Meja 1</option>
                 <option>Meja 2</option>
