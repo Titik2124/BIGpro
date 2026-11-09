@@ -220,29 +220,44 @@
       </section>
     </main>
 
-    <dialog class="modal" id="authModal">
-      <form class="modal-box" id="authForm">
-        <button class="icon-close" id="authClose" type="button" aria-label="Tutup">×</button>
-        <p class="eyebrow">Akun Pelanggan</p>
-        <h2 id="authTitle">Masuk</h2>
-        <div class="tabs">
-          <button type="button" class="tab active" data-auth-mode="login">Login</button>
-          <button type="button" class="tab" data-auth-mode="register">Registrasi</button>
+    <dialog class="modal auth-modal" id="authModal">
+      <form class="modal-box auth-box" id="authForm" aria-labelledby="authTitle">
+        <aside class="auth-visual">
+          <a class="auth-brand" href="#beranda" aria-label="Kuna Kopi">
+            <img src="{{ asset('images/logo.jpeg') }}" alt="" />
+            <span>Kuna Kopi</span>
+          </a>
+          <div class="auth-visual-copy">
+            <span class="auth-kicker">Ruang untuk menikmati</span>
+            <h2>Secangkir jeda, sebelum hari berlanjut.</h2>
+            <p>Masuk untuk reservasi dan pesan favoritmu dengan lebih mudah.</p>
+          </div>
+          <span class="auth-photo-credit">Suasana hangat, rasa yang akrab.</span>
+        </aside>
+        <div class="auth-content">
+          <button class="icon-close" id="authClose" type="button" aria-label="Tutup">×</button>
+          <p class="eyebrow">Akun pelanggan</p>
+          <h2 id="authTitle">Masuk</h2>
+          <p class="auth-intro" id="authIntro">Selamat datang kembali. Masuk untuk melanjutkan.</p>
+          <div class="tabs">
+            <button type="button" class="tab active" data-auth-mode="login">Login</button>
+            <button type="button" class="tab" data-auth-mode="register">Registrasi</button>
+          </div>
+          <div class="register-only">
+            <label>Nama Lengkap <input id="authName" type="text" /></label>
+            <label>Nomor WhatsApp <input id="authPhone" type="tel" placeholder="08xxxxxxxxxx" /></label>
+          </div>
+          <label>Email atau WhatsApp <input id="authIdentity" type="text" required /></label>
+          <label>Password <input id="authPassword" type="password" required /></label>
+          <label class="register-only">Konfirmasi Password <input id="authPasswordConfirm" type="password" /></label>
+          <label class="checkbox-line login-only">
+            <input id="rememberMe" type="checkbox" />
+            Ingat saya
+          </label>
+          <button class="primary wide" type="submit">Lanjutkan</button>
+          <button class="link-button login-only" type="button" id="forgotPassword">Lupa password?</button>
+          <p class="form-hint" id="authHint">Masukkan akun pelanggan yang sudah terdaftar.</p>
         </div>
-        <div class="register-only">
-          <label>Nama Lengkap <input id="authName" type="text" /></label>
-          <label>Nomor WhatsApp <input id="authPhone" type="tel" placeholder="08xxxxxxxxxx" /></label>
-        </div>
-        <label>Email atau WhatsApp <input id="authIdentity" type="text" required /></label>
-        <label>Password <input id="authPassword" type="password" required /></label>
-        <label class="register-only">Konfirmasi Password <input id="authPasswordConfirm" type="password" /></label>
-        <label class="checkbox-line login-only">
-          <input id="rememberMe" type="checkbox" />
-          Remember me
-        </label>
-        <button class="primary wide" type="submit">Lanjutkan</button>
-        <button class="link-button login-only" type="button" id="forgotPassword">Lupa password?</button>
-        <p class="form-hint" id="authHint">Masukkan akun pelanggan yang sudah terdaftar.</p>
       </form>
     </dialog>
 

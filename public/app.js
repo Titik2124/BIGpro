@@ -478,6 +478,9 @@ function renderHistory() {
 function setAuthMode(nextMode) {
   authMode = nextMode;
   $("#authTitle").textContent = authMode === "login" ? "Masuk" : "Registrasi";
+  $("#authIntro").textContent = authMode === "login"
+    ? "Selamat datang kembali. Masuk untuk melanjutkan."
+    : "Buat akun untuk menikmati reservasi dan pemesanan yang lebih praktis.";
   $("#authHint").textContent = authMode === "login" ? "Masukkan akun pelanggan yang sudah terdaftar." : "";
   document.querySelectorAll("[data-auth-mode]").forEach((button) => {
     button.classList.toggle("active", button.dataset.authMode === authMode);
