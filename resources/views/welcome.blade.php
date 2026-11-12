@@ -265,19 +265,36 @@
       <div class="admin-shell">
         <div class="admin-box">
         <div id="adminLogin">
-          <div class="admin-head">
-            <div>
-              <p class="eyebrow">Admin</p>
-              <h2>Masuk Dashboard</h2>
+          <aside class="admin-login-visual">
+            <a class="admin-login-brand" href="#beranda" aria-label="Kuna Kopi">
+              <img src="{{ asset('images/logo.jpeg') }}" alt="Logo Kuna Kopi" />
+              <span>Kuna Kopi</span>
+            </a>
+            <div class="admin-login-copy">
+              <span class="admin-login-kicker">Ruang operasional</span>
+              <h1>Kelola hari ini<br />dengan tenang.</h1>
+              <p>Pantau reservasi, pesanan, dan ketersediaan menu dari satu dashboard.</p>
             </div>
-            <button class="secondary small" id="adminBack" type="button">Halaman Pelanggan</button>
+            <div class="admin-login-points" aria-label="Fitur dashboard">
+              <span><b>✓</b> Reservasi terkini</span>
+              <span><b>✓</b> Stok menu terpantau</span>
+            </div>
+          </aside>
+          <div class="admin-login-form-area">
+            <button class="admin-back-link" id="adminBack" type="button">← Kembali ke halaman pelanggan</button>
+            <div class="admin-login-heading">
+              <p class="eyebrow">Akses staf</p>
+              <h2>Selamat datang.</h2>
+              <p>Masuk untuk membuka dashboard operasional Kuna Kopi.</p>
+            </div>
+            <form class="form" id="adminLoginForm">
+              <label>Username <input id="adminUser" type="text" value="admin" autocomplete="username" required /></label>
+              <label>Password <input id="adminPass" type="password" autocomplete="current-password" required /></label>
+              <button class="primary wide" type="submit">Masuk ke Dashboard <span aria-hidden="true">→</span></button>
+              <p class="form-hint">Gunakan akun admin yang telah terdaftar.</p>
+            </form>
+            <p class="admin-login-footnote"><span aria-hidden="true">⌁</span> Area khusus tim Kuna Kopi</p>
           </div>
-          <form class="form" id="adminLoginForm">
-            <label>Username <input id="adminUser" type="text" value="admin" required /></label>
-            <label>Password <input id="adminPass" type="password" required /></label>
-            <button class="primary wide" type="submit">Masuk Admin</button>
-            <p class="form-hint">Masukkan username dan password admin.</p>
-          </form>
         </div>
 
         <div id="adminDashboard" hidden>
